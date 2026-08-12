@@ -240,6 +240,17 @@ describe('buildWorkspaceSetupPromptText', () => {
     expect(result).toContain('Build only what they accept');
   });
 
+  it('should end the setup by calling the completion tool once nothing is left to build', () => {
+    const result = buildPrompt();
+
+    expect(result).toContain('## Ending the setup');
+    expect(result).toContain(
+      'end that same reply by calling complete_workspace_setup',
+    );
+    expect(result).toContain('moving to a side panel');
+    expect(result).toContain('never make it twice');
+  });
+
   it('should propose a dashboard built with the dashboard tools', () => {
     const result = buildPrompt();
 
@@ -316,5 +327,4 @@ describe('buildWorkspaceSetupPromptText', () => {
       'This workspace is named "Acme" (subdomain: acme). The admin setting it up signed up with admin@acme.com.',
     );
   });
-
 });

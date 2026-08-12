@@ -338,7 +338,10 @@ describe('CompanyEnrichmentOnboardingEffect', () => {
         isBookCallOnboardingStepPending: true,
       }),
       {
-        request: { query: CompleteBookCallOnboardingStepDocument },
+        request: {
+          query: CompleteBookCallOnboardingStepDocument,
+          variables: { hasBookedCall: false, isAutoSkipped: true },
+        },
         result: () => {
           hasClearedBookCallStep = true;
 
