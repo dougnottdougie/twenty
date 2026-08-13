@@ -563,6 +563,20 @@ export class ConfigVariables {
   IS_FEATURE_FLAG_MANAGEMENT_ENABLED = false;
 
   @ConfigVariablesMetadata({
+    group: ConfigVariablesGroup.ADVANCED_SETTINGS,
+    description:
+      'FORK: when enabled, this self-hosted instance serves the email group / ' +
+      'campaign features from its own code rather than requiring a Twenty ' +
+      'Enterprise plan. Env-only on purpose: it carries licensing implications, ' +
+      'so it should be visible in version-controlled deployment config rather ' +
+      'than flippable from a browser session.',
+    type: ConfigVariableType.BOOLEAN,
+    isEnvOnly: true,
+  })
+  @IsOptional()
+  IS_SELF_HOSTED_EMAIL_GROUP_UNGATED = false;
+
+  @ConfigVariablesMetadata({
     group: ConfigVariablesGroup.SERVER_CONFIG,
     description:
       'Deployment region that determines the DPA hosting location shown to customers. The Processor entity (Twenty.com PBC) and governing law (Delaware, USA) are the same for all regions. EU (default) = Frankfurt, Germany; US = United States. Must match where Customer Personal Data actually lives.',

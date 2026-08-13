@@ -23,6 +23,8 @@ import { UnsubscribeTokenService } from 'src/engine/core-modules/emailing-domain
 import { EnterpriseModule } from 'src/engine/core-modules/enterprise/enterprise.module';
 import { FeatureFlagModule } from 'src/engine/core-modules/feature-flag/feature-flag.module';
 import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
+// FORK: self-hosted replacement for the Enterprise email group access check.
+import { SelfHostedEmailGroupAccessService } from 'src/modules/emailing/services/self-hosted-email-group-access.service';
 import { SecretEncryptionModule } from 'src/engine/core-modules/secret-encryption/secret-encryption.module';
 import { WorkspaceEntity } from 'src/engine/core-modules/workspace/workspace.entity';
 import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspace-scoped-repository/provide-workspace-scoped-repository';
@@ -46,7 +48,15 @@ import { provideWorkspaceScopedRepository } from 'src/engine/twenty-orm/workspac
     EmailGroupAccessService,
   ],
   providers: [
-    EmailGroupAccessService,
+    // FORK: bind the upstream token to our own AGPL implementation. All four
+    // consuming resolvers (emailing-domain, emailing-send, unsubscribe-topic,
+    // message-suppression) resolve this token, so overriding it here covers
+    // every operation without duplicating a single resolver. `exports` still
+    // lists the original token, which keeps working — only the binding changes.
+    {
+      provide: EmailGroupAccessService,
+      useClass: SelfHostedEmailGroupAccessService,
+    },
     EmailingDomainService,
     EmailingDomainTenantStatusService,
     UnsubscribeTokenService,

@@ -33,6 +33,14 @@ x-twenty-env: &twenty-env
   # tag this build descends from (git describe --tags --match 'twenty/v*').
   # Overriding it here means changing it never requires a rebuild.
   APP_VERSION: ${APP_VERSION:?set APP_VERSION in .env (semver, e.g. 2.30.0)}
+  # FORK: serve email group / campaigns from this fork's own code instead of
+  # requiring a Twenty Enterprise plan. Env-only by design — see the config
+  # variable's description. Leave false until you intend to enable campaigns.
+  IS_SELF_HOSTED_EMAIL_GROUP_UNGATED: ${IS_SELF_HOSTED_EMAIL_GROUP_UNGATED:-false}
+  # Empty means ClickHouse is OFF: getMainClient() returns undefined and event
+  # ingestion silently falls back to a console sink. Setting this is what turns
+  # the optional `clickhouse` profile service into a live dependency.
+  CLICKHOUSE_URL: ${CLICKHOUSE_URL:-}
   # TRUST_PROXY defaults to "loopback, linklocal, uniquelocal", which already
   # covers the RFC1918 compose network cloudflared connects from, so
   # X-Forwarded-Proto: https is honored without an override here.
@@ -116,6 +124,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Optional — event-log storage. Behind a compose profile, so a plain
+  # `docker compose up -d` does NOT start it. To enable:
+  #   1. set CLICKHOUSE_URL=http://clickhouse:8123 in .env
+  #   2. docker compose --profile clickhouse up -d
+  #   3. run the ClickHouse migrations to create the tables, otherwise every
+  #      query fails against a database with no schema
+  # To disable again, comment CLICKHOUSE_URL back out: ingestion reverts to the
+  # console sink and nothing errors.
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    profiles: ["clickhouse"]
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    # No published ports — the server reaches it over the private network.
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
 volumes:
   db-data:
   server-local-data:
+  clickhouse-data:
