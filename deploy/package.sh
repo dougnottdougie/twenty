@@ -10,6 +10,9 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE="${IMAGE:-twenty-crm}"
 TAG="${TAG:-local}"
+# Semver, baked in as a default. Compose overrides it at runtime from .env,
+# so this only matters if the image is run outside compose.
+APP_VERSION="${APP_VERSION:-$(git describe --tags --match 'twenty/v*' --abbrev=0 2>/dev/null | sed 's|^twenty/v||' || echo 0.0.0)}"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/dist}"
 OUT="$OUT_DIR/${IMAGE}-${TAG}.tar.gz"
 
@@ -20,7 +23,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   docker build \
     --target twenty \
     -f packages/twenty-docker/twenty/Dockerfile \
-    --build-arg "APP_VERSION=${TAG}" \
+    --build-arg "APP_VERSION=${APP_VERSION}" \
     -t "${IMAGE}:${TAG}" \
     .
 fi

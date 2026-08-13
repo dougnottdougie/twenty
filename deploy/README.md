@@ -41,10 +41,17 @@ Build the image from the repo root. Use `docker build` rather than
 `.env` is set, and the image itself needs none of them.
 
 ```bash
-docker build --target twenty -f packages/twenty-docker/twenty/Dockerfile --build-arg APP_VERSION=local -t twenty-crm:local .
+docker build --target twenty -f packages/twenty-docker/twenty/Dockerfile --build-arg APP_VERSION=2.30.0 -t twenty-crm:local .
 ```
 
 First build is long — it compiles the server and the frontend from source.
+
+`APP_VERSION` must be valid semver: the app/plugin system refuses to register
+apps otherwise, and app engine requirements are compared against it. Use the
+release tag this build descends from — `git describe --tags --match 'twenty/v*'`
+— and prefer understating over overstating, since claiming a version you aren't
+running lets incompatible apps install. Compose also sets it from `.env` at
+runtime, so correcting it later never needs a rebuild.
 Then, from `deploy/`:
 
 ```bash
