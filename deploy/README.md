@@ -71,14 +71,28 @@ docker compose up -d
 Watch progress with `docker compose logs -f server`; the entrypoint runs
 migrations before the app comes up.
 
-Verify:
+Verify. No ports are published, so check from inside:
 
-- `curl http://127.0.0.1:3000/healthz` — app is up locally
-- `curl http://127.0.0.1:2000/ready` — tunnel is registered with Cloudflare
-- Then load `https://crm.yourdomain.com`
+```bash
+docker compose ps
+```
 
-Once the tunnel works, delete the `ports:` block from the `server` service so
-the app is reachable *only* through Cloudflare.
+`server` reporting `healthy` means the app answered `/healthz` on its own
+healthcheck — same signal a published port would have given you, without
+exposing anything.
+
+```bash
+docker compose logs cloudflared | grep -i "registered tunnel connection"
+```
+
+That confirms the tunnel is up. Then load `https://crm.yourdomain.com`.
+
+If you ever need to poke the app directly while debugging, exec into it rather
+than publishing a port:
+
+```bash
+docker compose exec server curl -sf http://localhost:3000/healthz
+```
 
 ## 4. Put Access in front of it
 
