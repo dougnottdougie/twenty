@@ -1,0 +1,118 @@
+name: crm
+
+# Twenty CRM built from this fork, published through a Cloudflare Zero Trust
+# tunnel. No inbound ports are opened on the host: cloudflared dials out to
+# Cloudflare's edge and reaches the app over the private compose network.
+#
+#   cd deploy && docker compose up -d --build
+#
+# Everything here lives outside packages/twenty-docker/ on purpose, so merging
+# upstream never conflicts with this deployment.
+
+x-twenty-image: &twenty-image
+  image: ${IMAGE:-twenty-crm}:${TAG:-local}
+  build:
+    context: ..
+    dockerfile: packages/twenty-docker/twenty/Dockerfile
+    target: twenty
+    args:
+      APP_VERSION: ${APP_VERSION:-local}
+
+x-twenty-env: &twenty-env
+  NODE_PORT: 3000
+  PG_DATABASE_URL: postgres://${PG_DATABASE_USER:-postgres}:${PG_DATABASE_PASSWORD:?set PG_DATABASE_PASSWORD in .env}@db:5432/default
+  REDIS_URL: redis://redis:6379
+  # Must exactly match the tunnel's public hostname. The frontend derives its
+  # API origin from this, and auth cookies/redirects break if it disagrees.
+  SERVER_URL: ${SERVER_URL:?set SERVER_URL to your https:// Cloudflare hostname}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
+  FALLBACK_ENCRYPTION_KEY: ${FALLBACK_ENCRYPTION_KEY:-}
+  STORAGE_TYPE: ${STORAGE_TYPE:-local}
+  # TRUST_PROXY defaults to "loopback, linklocal, uniquelocal", which already
+  # covers the RFC1918 compose network cloudflared connects from, so
+  # X-Forwarded-Proto: https is honored without an override here.
+
+services:
+  server:
+    <<: *twenty-image
+    environment:
+      <<: *twenty-env
+      DISABLE_DB_MIGRATIONS: ${DISABLE_DB_MIGRATIONS:-false}
+      DISABLE_CRON_JOBS_REGISTRATION: ${DISABLE_CRON_JOBS_REGISTRATION:-false}
+    volumes:
+      - server-local-data:/app/packages/twenty-server/.local-storage
+    ports:
+      # Loopback only — for local debugging. Public access is the tunnel's job.
+      # Delete this block entirely once the tunnel is confirmed working.
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:3000/healthz
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  worker:
+    <<: *twenty-image
+    command: ["yarn", "worker:prod"]
+    environment:
+      <<: *twenty-env
+      DISABLE_DB_MIGRATIONS: "true" # the server already runs them
+      DISABLE_CRON_JOBS_REGISTRATION: "true" # the server already registers them
+    volumes:
+      - server-local-data:/app/packages/twenty-server/.local-storage
+    depends_on:
+      db:
+        condition: service_healthy
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: default
+      POSTGRES_USER: ${PG_DATABASE_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_DATABASE_PASSWORD:?set PG_DATABASE_PASSWORD in .env}
+    healthcheck:
+      test: pg_isready -U ${PG_DATABASE_USER:-postgres} -h localhost -d postgres
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis
+    command: ["--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    # Remotely-managed tunnel: ingress rules live in the Zero Trust dashboard,
+    # not in a local config file. Point the public hostname at http://server:3000.
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN in .env}
+    ports:
+      # Loopback-only metrics: http://127.0.0.1:2000/ready shows tunnel state.
+      - "127.0.0.1:2000:2000"
+    depends_on:
+      server:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  server-local-data:
