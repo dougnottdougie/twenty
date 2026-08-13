@@ -10,6 +10,7 @@ import { ThemeContext, themeCssVariables } from 'twenty-ui/theme-constants';
 
 import { EmailAttachmentsField } from '@/activities/emails/components/EmailAttachmentsField';
 import { EmailComposerFieldRow } from '@/activities/emails/components/EmailComposerFieldRow';
+import { EmailBodyEditorWithToolbar } from '@/activities/emails/editor/components/EmailBodyEditorWithToolbar';
 import { INLINE_EMAIL_BODY_EDITOR_PROFILE } from '@/activities/emails/editor/constants/InlineEmailBodyEditorProfile';
 import { useUploadEmailImage } from '@/activities/emails/hooks/useUploadEmailImage';
 import { EmailRecipientsFieldInput } from '@/activities/emails/recipients/components/EmailRecipientsFieldInput';
@@ -285,6 +286,7 @@ export const EmailComposerFields = ({
           onChange={composerState.setBody}
           placeholder={t`Type something or press "/" to see commands`}
           profile={INLINE_EMAIL_BODY_EDITOR_PROFILE}
+          EditorComponent={EmailBodyEditorWithToolbar}
           onImageUpload={uploadEmailImage}
         />
       </StyledBody>
